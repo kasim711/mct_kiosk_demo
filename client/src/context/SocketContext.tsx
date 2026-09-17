@@ -14,11 +14,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [connected, setConnected] = useState<boolean>(false);
 
   useEffect(() => {
-    // Connect to backend server on LAN / localhost
+    // Connect to backend server on LAN / Cloud / Localhost
     const socketUrl =
-      process.env.NODE_ENV === 'production'
+      import.meta.env.VITE_API_URL ||
+      (process.env.NODE_ENV === 'production'
         ? window.location.origin
-        : 'http://localhost:5000';
+        : 'http://localhost:5000');
 
     const s = io(socketUrl, {
       transports: ['websocket', 'polling'],
