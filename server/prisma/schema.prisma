@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  username     String    @unique
+  passwordHash String
+  pinHash      String?
+  name         String
+  role         String    @default("CASHIER") // ADMIN, MANAGER, CASHIER, KITCHEN, KIOSK
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  nameEn    String
+  nameAr    String
+  icon      String?
+  sortOrder Int       @default(0)
+  isActive  Boolean   @default(true)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id             String                 @id @default(uuid())
+  categoryId     String
+  category       Category               @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  nameEn         String
+  nameAr         String
+  descEn         String?
+  descAr         String?
+  priceBaisa     Int                    // In Baisa (OMR 1.500 = 1500)
+  imageUrl       String?
+  isAvailable    Boolean                @default(true)
+  sortOrder      Int                    @default(0)
+  modifierGroups ProductModifierGroup[]
+  orderItems     OrderItem[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+}
+
+model ModifierGroup {
+  id          String                 @id @default(uuid())
+  nameEn      String
+  nameAr      String
+  minSelect   Int                    @default(0)
+  maxSelect   Int                    @default(1)
+  isRequired  Boolean                @default(false)
+  options     ModifierOption[]
+  products    ProductModifierGroup[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+}
+
+model ModifierOption {
+  id              String        @id @default(uuid())
+  groupId         String
+  group           ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  nameEn          String
+  nameAr          String
+  priceDeltaBaisa Int           @default(0) // In Baisa
+  isAvailable     Boolean       @default(true)
+  sortOrder       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model ProductModifierGroup {
+  productId String
+  groupId   String
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  group     ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([productId, groupId])
+}
+
+model OrderSequence {
+  id         String   @id @default("order_sequence")
+  prefix     String   @default("#")
+  nextNumber Int      @default(1001)
+  updatedAt  DateTime @updatedAt
+}
+
+model Order {
+  id                 String      @id @default(uuid())
+  orderNumber        Int         @unique
+  displayOrderNumber String
+  kioskId            String      @default("Kiosk-1")
+  orderType          String      @default("DINE_IN") // DINE_IN, TAKEAWAY
+  tableNumber        String?
+  status             String      @default("PENDING_PAYMENT") // PENDING_PAYMENT, PAID, PREPARING, READY, COMPLETED, CANCELLED
+  subtotalBaisa      Int
+  taxBaisa           Int
+  totalBaisa         Int
+  customerLanguage   String      @default("en")
+  cancelReason       String?
+  cancelledByStaffId String?
+  printCount         Int         @default(1)
+  lastPrintedAt      DateTime?
+  items              OrderItem[]
+  payment            Payment?
+  createdAt          DateTime    @default(now())
+  paidAt             DateTime?
+  completedAt        DateTime?
+  updatedAt          DateTime    @updatedAt
+}
+
+model OrderItem {
+  id                   String   @id @default(uuid())
+  orderId              String
+  order                Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId            String?
+  product              Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productNameEn        String   // Snapshot
+  productNameAr        String   // Snapshot
+  unitPriceBaisa       Int      // Snapshot
+  quantity             Int
+  modifiersPriceBaisa  Int      @default(0) // Snapshot
+  totalPriceBaisa      Int      // Snapshot: (unitPriceBaisa + modifiersPriceBaisa) * quantity
+  selectedModifiersJson String  @default("[]") // Snapshot JSON: [{ nameEn, nameAr, priceDeltaBaisa }]
+  specialNotes         String?
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  orderId       String   @unique
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amountBaisa   Int
+  paymentMethod String   // CASH, CARD, OTHER
+  receivedBaisa Int?     // For CASH
+  changeBaisa   Int?     // For CASH
+  cashierId     String?
+  cashierName   String?
+  notes         String?
+  paidAt        DateTime @default(now())
+}
+
+model RestaurantSettings {
+  id                   String   @id @default("default_settings")
+  restaurantNameEn     String   @default("Muscat Grill & Cafe")
+  restaurantNameAr     String   @default("مطعم ومقهى مسقط للمشاوي")
+  addressEn            String   @default("Al Khuwair, Muscat, Sultanate of Oman")
+  addressAr            String   @default("الخوير، مسقط، سلطنة عُمان")
+  phone                String   @default("+968 24 123456")
+  currencyCode         String   @default("OMR")
+  currencySymbolAr     String   @default("ر.ع.")
+  isTaxEnabled         Boolean  @default(true)
+  taxRatePercent       Float    @default(5.0)
+  isTaxIncludedInPrice Boolean  @default(true)
+  receiptHeaderEn      String   @default("Welcome to Muscat Grill & Cafe")
+  receiptHeaderAr      String   @default("أهلاً بكم في مطعم ومقهى مسقط للمشاوي")
+  receiptFooterEn      String   @default("Thank you for dining with us!")
+  receiptFooterAr      String   @default("شكراً لزيارتكم ونتمنى لكم وجبة شهية!")
+  defaultLanguage      String   @default("en")
+  idleTimeoutSeconds   Int      @default(60)
+  printerWidth         String   @default("80mm") // 58mm or 80mm
+  autoPrintEnabled     Boolean  @default(true)
+  networkPrinterIp     String   @default("192.168.1.200")
+  networkPrinterPort   Int      @default(9100)
+  updatedAt            DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  userName  String?
+  action    String   // PAYMENT_COLLECTED, ORDER_CANCELLED, RECEIPT_REPRINTED, SETTINGS_UPDATED, MENU_EDITED
+  entity    String   // Order, Payment, Product, RestaurantSettings
+  entityId  String?
+  details   String?
+  createdAt DateTime @default(now())
+}
