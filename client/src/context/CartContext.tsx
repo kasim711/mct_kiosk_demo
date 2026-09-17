@@ -157,10 +157,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Cannot place an empty order');
     }
 
-    if (orderType === 'DINE_IN' && !tableNumber.trim()) {
-      throw new Error('Table number is required for Dine-in orders');
-    }
-
     setIsSubmitting(true);
     try {
       const payload = {

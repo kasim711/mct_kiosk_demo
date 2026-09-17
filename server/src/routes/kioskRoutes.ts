@@ -84,11 +84,6 @@ router.post('/orders', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Order must contain items' });
     }
 
-    if (orderType === 'DINE_IN' && !tableNumber) {
-      // Dine-in orders require a table number
-      return res.status(400).json({ error: 'Table number is required for Dine-in orders' });
-    }
-
     // Process order creation inside atomic transaction with server pricing
     const order = await OrderService.createOrder({
       kioskId: kioskId || 'Kiosk-1',
